@@ -162,59 +162,102 @@ ImageUnderstanding-HW2/
 
 ---
 
-## Key Design Decisions (To Be Confirmed)
+## Key Design Decisions (CONFIRMED)
 
-### 1. **Focal Length Handling**
-- **Option A:** Fixed focal length (user-specified in config)
-- **Option B:** Auto-estimate from EXIF data
-- **Option C:** Interactive calibration tool
-- **Decision:** ?
+> **详细设计规格请参考:** `doc/design_specification.md`
 
-### 2. **Pipeline Mode**
-- **Option A:** Fully automated (one-click run)
-- **Option B:** Step-by-step (manual control per stage)
-- **Option C:** Hybrid (auto with manual override)
-- **Decision:** ?
+### 1. **Focal Length Handling** ✅
+- **Decision:** **Option B** - Auto-read from EXIF data
+- **Implementation:**
+  - Priority: CLI args > EXIF data > .env default
+  - Fallback to `DEFAULT_FOCAL_LENGTH` in .env if EXIF missing
+  - Support manual override via `--focal-length` parameter
 
-### 3. **Intermediate Outputs**
-- **Option A:** Save all intermediate results (warped images, features, matches)
-- **Option B:** Save only final panorama
-- **Option C:** Configurable via CLI flags
-- **Decision:** ?
+### 2. **Pipeline Mode** ✅
+- **Decision:** **Option C** - Hybrid Mode
+- **Implementation:**
+  - Default: Fully automated (run all 8 steps)
+  - Support selective step execution via config
+  - Save all intermediate results for debugging
 
-### 4. **Error Handling**
-- **Option A:** Fail fast (stop on first error)
-- **Option B:** Continue with warnings
-- **Option C:** Retry with fallback parameters
-- **Decision:** ?
+### 3. **Intermediate Outputs** ✅
+- **Decision:** **Option A** - Save all intermediate results
+- **Implementation:**
+  - Use timestamp-based directory structure: `output/{timestamp}/`
+  - Save: warped images, features, matches, translations, blending, final
+  - Each run creates isolated output directory
+  - Create `latest/` symlink pointing to most recent run
 
-### 5. **Testing Strategy**
-- **Option A:** Unit tests for each module
-- **Option B:** Integration test with sample dataset
-- **Option C:** Manual testing only
-- **Decision:** ?
+### 4. **Translation List Format** ✅
+- **Decision:** JSON format
+- **Implementation:**
+  - Save as `translations.json` with metadata
+  - Include: pair indices, translation vectors, inlier counts
+  - Human-readable and machine-parseable
+
+### 5. **Blending Method** ✅
+- **Decision:** Simple Averaging
+- **Implementation:**
+  - Arithmetic mean for overlapping regions
+  - Fast and simple implementation
+  - Suitable for consistent lighting conditions
+
+### 6. **Drift Correction** ✅
+- **Decision:** Full support as per PDF requirements
+- **Implementation:**
+  - Match first and last images
+  - Compute gap angle θ_g
+  - Update focal length: f' = f(1 - θ_g/2π)
+  - Configurable: enable/disable via `.env`
+
+### 7. **Configuration Management** ✅
+- **Decision:** CLI + .env file
+- **Implementation:**
+  - Support command-line arguments
+  - Load from `.env` when no CLI args provided
+  - Priority: CLI > .env > defaults
+
+### 8. **Interactive Viewer** ✅
+- **Decision:** Not implemented
+- **Rationale:**
+  - Focus on stitching quality
+  - Output high-quality static images
+  - Use standard image viewers for results
+
+### 9. **Dataset Preparation** ✅
+- **Decision:** Prepare multiple test datasets
+- **Implementation:**
+  - Directory structure: `data/sample_panorama/{set1,set2,set3}/`
+  - Include: building, landscape, 360-degree scenarios
+  - Download from official source or prepare manually
+
+### 10. **Error Handling** ✅
+- **Decision:** Continue with warnings + detailed logging
+- **Implementation:**
+  - Log all warnings and errors
+  - Skip failed image pairs
+  - Generate summary report at end
 
 ---
 
-## Questions for Clarification
+## Design Decisions Summary
 
-### High Priority
-1. **Image Dataset:** Should we support multiple datasets or focus on one official set?
-2. **Focal Length:** How should we determine/configure focal length?
-3. **Pipeline Execution:** Fully automated or step-by-step control?
-4. **Output Requirements:** What intermediate outputs are needed for the report?
+所有关键设计决策已确认（2025-11-14）：
 
-### Medium Priority
-5. **Blending Algorithm:** Simple averaging or advanced multi-band blending?
-6. **Drift Correction:** Always apply or only for 360° panoramas?
-7. **Visualization:** How much debugging/visualization output is needed?
-8. **Performance:** Are there speed/memory constraints?
+| # | 决策项 | 选择 | 状态 |
+|---|--------|------|------|
+| 1 | 焦距处理 | 从EXIF读取（支持手动覆盖） | ✅ |
+| 2 | Pipeline模式 | 混合模式（自动运行，保存所有中间结果） | ✅ |
+| 3 | 中间结果保存 | 全部保存，使用时间戳隔离 | ✅ |
+| 4 | 数据集准备 | 准备多个测试数据集 | ✅ |
+| 5 | Translation格式 | JSON | ✅ |
+| 6 | 融合方法 | 简单平均 | ✅ |
+| 7 | 漂移校正 | 完整支持（可配置） | ✅ |
+| 8 | 配置管理 | CLI参数 + .env文件 | ✅ |
+| 9 | 交互式查看器 | 不实现 | ✅ |
+| 10 | 错误处理 | 继续运行+警告日志 | ✅ |
 
-### Low Priority
-9. **Code Quality:** Do we need unit tests?
-10. **Documentation:** Level of code documentation required?
-11. **Interactive Features:** Any need for GUI or interactive tools?
-12. **Extensibility:** Should the code support future extensions (e.g., vertical panoramas)?
+**参考完整设计规格:** `doc/design_specification.md`
 
 ---
 
