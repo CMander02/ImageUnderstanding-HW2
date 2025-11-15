@@ -1,206 +1,180 @@
-# 圆柱全景拼接系统 (Cylindrical Panorama Stitching)
+# Cylindrical Panorama Stitching
 
-**课程项目:** 图像理解 Project 2
-**截止日期:** 2025-11-15
+A uv run implementation of cylindrical panorama image stitching using SIFT features and RANSAC alignment.
 
-## 项目简介
+## Quick Start
 
-本项目实现了基于SIFT特征和RANSAC对齐的圆柱全景图像拼接系统，包含完整的8步处理流程。
-
-## 快速开始
+### 1. Environment Setup
 
 ```bash
-# 1. 安装依赖
+# Install dependencies using uv
 uv sync
-
-# 2. 配置参数（可选，编辑 .env 文件）
-# 查看 .env 了解所有可配置参数
-
-# 3. 运行拼接（使用默认配置）
-python main.py
-
-# 4. 指定输入目录
-python main.py --input data/sample_panorama/set1_building/
-
-# 5. 查看结果
-# 结果保存在 output/{timestamp}/ 目录下
 ```
 
-## 核心功能
+### 2. Data Preparation
 
-### 完整的8步Pipeline
+Download and prepare the pano1 dataset:
 
-1. **图像采集** - 支持从目录读取图像序列
-2. **圆柱投影** - 使用EXIF焦距或配置参数进行投影变换
-3. **特征提取** - SIFT特征检测
-4. **特征匹配** - RANSAC鲁棒对齐
-5. **平移列表** - JSON格式保存变换参数
-6. **漂移校正** - 360度全景的端到端校正
-7. **图像融合** - 简单平均融合
-8. **裁剪输出** - 自动裁剪黑边
+```bash
+# Download from USTC server and extract to data/pano1/
+uv run scripts/prepare_data.py
+```
 
-### 关键特性
+This will:
+- Download `pano1.zip` from http://staff.ustc.edu.cn/~xjchen99/teaching/pano1.zip
+- Extract images to `data/pano1/`
+- Clean up temporary files
 
-- ✅ **EXIF焦距读取** - 自动从图像元数据提取焦距
-- ✅ **混合运行模式** - 全自动运行，保存所有中间结果
-- ✅ **时间戳隔离** - 每次运行使用独立的时间戳目录
-- ✅ **JSON格式** - 结构化保存变换参数
-- ✅ **简单平均融合** - 快速高效的图像融合
-- ✅ **漂移校正** - 完整支持360度全景
-- ✅ **CLI + .env配置** - 灵活的参数配置方式
-- ✅ **完整中间输出** - 保存所有处理步骤结果
+Alternatively, manually download images to your desired directory.
 
-## 项目结构
+### 3. Run Stitching
+
+```bash
+# Basic usage (uses default input directory)
+uv run main.py
+
+# Specify input directory
+uv run main.py --input data/pano1
+```
+
+### 4. View Results
+
+Results are saved in timestamped directories under `outputs/`:
+```
+outputs/
+└── 20250115-143022/
+    ├── warped/              # Cylindrical projected images
+    ├── features/            # Feature detection visualization
+    ├── matches/             # Feature matching visualization
+    ├── blended.jpg          # Blended panorama
+    ├── final.jpg            # Final cropped result
+    └── 20250115-143022.log     # Execution log
+```
+
+## Command Line Arguments
+
+### Basic Usage
+```bash
+uv run main.py [OPTIONS]
+```
+
+### Available Options
+
+| Argument | Type | Default | Description |
+|----------|------|---------|-------------|
+| `--input` | string | `./data/pano1` | Input image directory |
+| `--output` | string | `./output` | Base output directory (timestamp added automatically) |
+| `--focal-length` | float | None | Focal length in pixels (overrides EXIF) |
+| `--blend-method` | choice | `average` | Blending method: `average`, `linear`, or `multiband` |
+| `--no-drift-correction` | flag | False | Disable drift correction for 360° panoramas |
+| `--steps` | string | `all` | Pipeline steps to run (e.g., `all` or `warp,match,blend`) |
+
+### Examples
+
+```bash
+# Use custom input directory
+uv run main.py --input data/my_photos
+
+# Override focal length
+uv run main.py --focal-length 800
+
+# Use linear blending without drift correction
+uv run main.py --blend-method linear --no-drift-correction
+
+# Run specific pipeline steps
+uv run main.py --steps warp,match,blend
+```
+
+## Environment Configuration
+
+Additional parameters can be configured via `.env` file:
+
+```bash
+# Input/Output
+IMAGE_PATH=./data/pano1
+OUTPUT_PATH=./output
+
+# Focal Length
+DEFAULT_FOCAL_LENGTH=500
+FOCAL_LENGTH_SOURCE=exif  # exif | config | auto
+
+# Pipeline
+SAVE_INTERMEDIATE=true
+PIPELINE_STEPS=all
+
+# SIFT Parameters
+SIFT_N_FEATURES=0
+SIFT_CONTRAST_THRESHOLD=0.04
+SIFT_EDGE_THRESHOLD=10
+
+# Feature Matching
+MATCH_RATIO_THRESHOLD=0.7
+
+# RANSAC
+RANSAC_THRESHOLD=5.0
+RANSAC_MAX_ITERS=2000
+RANSAC_CONFIDENCE=0.995
+
+# Drift Correction
+ENABLE_DRIFT_CORRECTION=true
+
+# Blending
+BLEND_METHOD=average
+
+# Output
+OUTPUT_FORMAT=jpg
+OUTPUT_QUALITY=95
+```
+
+**Configuration Priority:** Command-line arguments > `.env` file > Default values
+
+## Pipeline Overview
+
+The stitching pipeline consists of 8 steps:
+
+1. **Image Loading** - Load image sequence from directory
+2. **Cylindrical Projection** - Warp images using focal length from EXIF or config
+3. **Feature Detection** - Detect SIFT features in projected images
+4. **Feature Matching** - Match features between adjacent images using RANSAC
+5. **Translation Estimation** - Compute and save translation parameters to JSON
+6. **Drift Correction** - Apply end-to-end correction for 360° panoramas
+7. **Image Blending** - Blend aligned images using selected method
+8. **Cropping** - Automatically crop black borders from final result
+
+## Technical Stack
+
+- **uv run:** 3.13
+- **Package Manager:** uv
+- **Core Libraries:**
+  - OpenCV (cv2) - Image processing, SIFT, RANSAC
+  - NumPy - Numerical computation
+  - Matplotlib - Visualization
+  - Pillow - EXIF metadata reading
+  - uv run-dotenv - Configuration management
+
+## Project Structure
 
 ```
 ImageUnderstanding-HW2/
-├── .env                      # 配置文件
-├── main.py                   # 主入口
-├── src/                      # 源代码（待实现）
-├── data/                     # 数据集
-│   ├── official/             # 官方数据
-│   ├── sample_panorama/      # 示例数据集
-│   │   ├── set1_building/    # 建筑物全景
-│   │   ├── set2_landscape/   # 风景全景
-│   │   └── set3_360degree/   # 360度全景
-│   └── custom/               # 自定义数据
-├── output/                   # 输出结果（按时间戳组织）
-│   └── {timestamp}/
-│       ├── warped/           # 投影后图像
-│       ├── features/         # 特征可视化
-│       ├── matches/          # 匹配可视化
-│       ├── translations.json # 变换参数
-│       ├── blended.jpg       # 融合结果
-│       └── final.jpg         # 最终输出
-├── doc/                      # 文档
-│   ├── design_specification.md  # 设计规格（详细）
-│   ├── development_plan.md      # 开发计划
-│   └── todo.md                  # 任务清单
-└── scripts/                  # 工具脚本
-    └── download_sample_data.sh
+├── main.py                 # Main entry point
+├── src/                    # Source code package
+│   ├── config.py           # Configuration management
+│   ├── pipeline.py         # Main stitching pipeline
+│   ├── warping.py          # Cylindrical projection
+│   ├── features.py         # SIFT feature detection
+│   ├── matching.py         # Feature matching and RANSAC
+│   ├── alignment.py        # Image alignment
+│   ├── blending.py         # Image blending
+│   └── utils.py            # Utility functions
+├── data/                   # Input images
+│   └── pano1/              # Sample dataset
+├── outputs/                # Output results (timestamped)
+├── scripts/                # Utility scripts
+│   └── prepare_data.py     # Data download script
+├── .env                    # Configuration file
+└── pyproject.toml          # Project dependencies
 ```
 
-## 配置说明
+## License
 
-### 命令行参数
-
-```bash
-# 基本用法
-python main.py [OPTIONS]
-
-# 常用参数
---input PATH              # 输入图像目录
---output PATH             # 输出目录
---focal-length FLOAT      # 焦距（覆盖EXIF和默认值）
---enable-drift-correction # 启用漂移校正
---no-drift-correction     # 禁用漂移校正
---blend-method METHOD     # 融合方法: average/linear/multiband
---steps STEPS             # 执行步骤: all 或 warp,features,match,...
-```
-
-### .env 配置文件
-
-所有参数都可以在 `.env` 文件中配置。主要参数：
-
-```bash
-# 图像路径
-IMAGE_PATH=./data/official
-OUTPUT_PATH=./output
-
-# 焦距配置
-DEFAULT_FOCAL_LENGTH=500
-FOCAL_LENGTH_SOURCE=exif  # exif/config/auto
-
-# Pipeline配置
-PIPELINE_MODE=hybrid
-SAVE_INTERMEDIATE=true
-
-# 漂移校正
-ENABLE_DRIFT_CORRECTION=true
-
-# 融合方法
-BLEND_METHOD=average
-
-# 更多参数见 .env 文件
-```
-
-**参数优先级:** `命令行参数 > .env配置 > 程序默认值`
-
-## 设计文档
-
-所有设计决策已确认并文档化：
-
-| # | 决策项 | 选择 | 文档 |
-|---|--------|------|------|
-| 1 | 焦距处理 | 从EXIF读取（支持手动覆盖） | ✅ |
-| 2 | Pipeline模式 | 混合模式（自动+完整输出） | ✅ |
-| 3 | 中间结果 | 全部保存，时间戳隔离 | ✅ |
-| 4 | 数据集 | 准备多个测试数据集 | ✅ |
-| 5 | Translation格式 | JSON | ✅ |
-| 6 | 融合方法 | 简单平均 | ✅ |
-| 7 | 漂移校正 | 完整支持（可配置） | ✅ |
-| 8 | 配置管理 | CLI + .env | ✅ |
-| 9 | 交互式查看器 | 不实现 | ✅ |
-| 10 | 错误处理 | 继续运行+警告 | ✅ |
-
-**详细设计规格:** 请参考 [`doc/design_specification.md`](doc/design_specification.md)
-
-## 数据集准备
-
-### 官方数据集
-
-下载地址: http://staff.ustc.edu.cn/~xjchen99/teaching/Project2.htm
-
-### 示例数据集
-
-项目提供了三类测试场景的目录结构：
-
-1. **set1_building** - 建筑物全景（~180度）
-2. **set2_landscape** - 风景全景（~270度）
-3. **set3_360degree** - 360度环绕（测试漂移校正）
-
-使用脚本准备数据集：
-```bash
-bash scripts/download_sample_data.sh
-```
-
-或手动下载图像到对应目录。详见 [`data/sample_panorama/README.md`](data/sample_panorama/README.md)
-
-## 开发进度
-
-- [x] 项目规划和设计
-- [x] 配置系统设计
-- [x] 数据集目录准备
-- [x] 设计文档完成
-- [ ] 源代码实现
-- [ ] 测试和调优
-- [ ] 最终报告
-
-详细任务清单见 [`doc/todo.md`](doc/todo.md)
-
-## 技术栈
-
-- **Python:** 3.13
-- **包管理:** uv
-- **核心库:**
-  - OpenCV (cv2) - 图像处理、SIFT、RANSAC
-  - NumPy - 数值计算
-  - Matplotlib - 可视化
-  - Pillow - EXIF读取
-  - python-dotenv - 配置管理
-
-## 文档索引
-
-- **设计规格:** [`doc/design_specification.md`](doc/design_specification.md) - 完整的设计决策和技术规格
-- **开发计划:** [`doc/development_plan.md`](doc/development_plan.md) - 项目结构和开发阶段
-- **任务清单:** [`doc/todo.md`](doc/todo.md) - 详细的开发任务列表
-- **数据集说明:** [`data/sample_panorama/README.md`](data/sample_panorama/README.md) - 数据集准备指南
-
-## 许可证
-
-本项目为课程作业项目。
-
-## 参考资料
-
-- 项目PDF: `Proj2-Cylindrical Panoroma.pdf`
-- 官方数据集: http://staff.ustc.edu.cn/~xjchen99/teaching/Project2.htm
+This project is for educational purposes as part of the Image Understanding course.

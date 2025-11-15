@@ -1,0 +1,2 @@
+- 代码除了启动在 ./main.py，其余都放在 ./src 中，通过 uv pip install -e . 安装成包。
+- 使用 uv 管理环境，使用 ruff 进行格式校正。
